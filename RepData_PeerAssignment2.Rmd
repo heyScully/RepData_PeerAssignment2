@@ -1,0 +1,149 @@
+---
+title: "The Impact of Weather Events in the United States"
+output: html_document
+---
+## Synopsis
+
+Synopsis here.  10 sentences max.
+
+## Data Processing
+
+The data for this analysis is a version hosted on the course web site, which originates from the U.S. National Oceanic and Admospheric Administration's (NOAA) Storm Database. It contains data from January 1950 to November 2011.
+
+We download and read in the data.
+
+```{r, echo=TRUE}
+
+# load packages
+required.libraries <- c('ggplot2', 'dplyr', 'knitr', 'DataCombine')
+lapply(required.libraries, library, character.only=T)
+
+# download b-zipped data
+remote.file <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+local.file <- tempfile()
+download.file(remote.file, local.file, "curl")
+
+# read into df - this step takes a LONG time
+storm.data <- read.csv(bzfile(local.file))
+
+```
+
+The data set contains 902297 observations.
+
+```{r, echo=TRUE}
+dim(storm.data)
+```
+
+However, while the data reference material specifies that there are only 48 allowable EVTYPE factors, this data set contains 985 levels and must be cleaned up. Since the data set is large, I remove all rows with EVTYPE values that appear fewer than 100 times in the data set.  The assumption is that there is enough variance in these that none would influence the top rankings for either question in this research.  Additionally, this reduces the amount of assumptions that might have to go into interpreting the intention of each of these labels.
+
+```{r, echo=TRUE}
+
+# count the number of uses of each label
+eventlabelcount <- arrange(summarise(group_by(storm.data,EVTYPE),typecount=length(EVTYPE)),desc(typecount))
+
+# EVTYPES to exclude
+eventlabelexcludes <- eventlabelcount[which(eventlabelcount$typecount < 100),]
+
+# Truncate storm data to remove these excuded EVTYPE rows
+storm.data.truncated <- storm.data[which(! storm.data$EVTYPE %in% eventlabelexcludes$EVTYPE),]
+
+# remaining EVTYPE counts
+updatedlabelcount <- arrange_(summarise(group_by(storm.data.truncated, EVTYPE), typecount=length(EVTYPE)),desc(typecount))
+
+updatedlabelcount
+
+```
+
+By looking through the data, some fairly obvious label mismatches became apparent as compared to the allowed values in the Storm Data Event Table provided in the documentation.  To correct this, I'm creating a *replacement* data frame and the DataCombine R package to repair the remaining table. Some assumptions made in the associations below.
+
+```{r, echo=true}
+
+# old EVTYPE values
+old.values = c("TSTM WIND", "THUNDERSTORM WINDS", "MARINE TSTM WIND",
+               "URBAN/SML STREAM FLD", "HIGH WINDS", "WILD/FOREST FIRE",
+               "WINTER WEATHER/MIX","TSTM WIND/HAIL", "FLASH FLOODING",
+               "EXTREME COLD", "FLOOD/FLASH FLOOD", "LANDSLIDE",
+               "SNOW", "FOG", "WIND", "RIP CURRENTS",
+               "STORM SURGE", "FREEZING RAIN", "URBAN FLOOD",
+               "HEAVY SURF/HIGH SURF", "EXTREME WINDCHILL", "STRONG WINDS",
+               "DRY MICROBURST", "HURRICANE", "RIVER FLOOD", "LIGHT SNOW",
+               "RECORD WARMTH", "COASTAL FLOODING", "UNSEASONABLY WARM",
+               "FLOODING", "ASTRONOMICAL HIGH TIDE", "MODERATE SNOWFALL")
+
+# new EVTYPE values
+new.values = c("THUNDERSTORM WIND", "THUNDERSTORM WIND", "MARINE THUNDERSTORM WIND",
+               "FLOOD", "HIGH WIND", "WILDFIRE",
+               "WINTER WEATHER", "THUNDERSTORM WIND", "FLASH FLOOD",
+               "EXTREME COLD/WIND CHILL", "FLOOD", "DEBRIS FLOW",
+               "HEAVY SNOW", "DENSE FOG", "HIGH WIND", "RIP CURRENT",
+               "STORM SURGE/TIDE", "WINTER WEATHER", "FLOOD",
+               "HIGH SURF", "EXTREME COLD/WIND CHILL", "STRONG WIND",
+               "HIGH WIND", "HURRICANE (TYPHOON)", "FLOOD", "WINTER WEATHER",
+               "EXCESSIVE HEAT", "COASTAL FLOOD", "HEAT",
+               "FLOOD", "STORM SURGE/FLOOD", "WINTER STORM")
+
+# Create replace data frame
+replacement <- data.frame(from = old.values, to = new.values)
+
+# Do replacement (this takes a minute)
+storm.data.replaced <- FindReplace(storm.data.truncated, "EVTYPE", replacement, from="from", 
+                                   to="to", exact = TRUE)
+
+# now let's see what the EVTYPE count looks like
+updatedlabelcount2 <- arrange(summarise(group_by(storm.data.replaced, EVTYPE), typecount=length(EVTYPE)),desc(typecount))
+
+updatedlabelcount2
+
+```
+
+Now, we're down to just **{r updatedlabelcount2}** EVTYPE labels, all of which fit the reporting guidelines, and we have a workable data set.
+
+
+## Results
+
+### Across the United States, which types of events (as indicated in the *EVTYPE* variable) are most harmful with respect to population health?
+
+```{r, echo=TRUE}
+
+# group and summarize by event type, counting injuries and fatalities
+storm.data.by.evtype <- group_by(storm.data.replaced, EVTYPE)
+summary.by.evtype <- summarise(storm.data.by.evtype, total.fatalities = sum(FATALITIES),
+                               total.injuries = sum(INJURIES), 
+                               total.harm.events = total.fatalities + total.injuries)
+
+sorted.by.fatalities <- summary.by.evtype[order(-summary.by.evtype$total.fatalities),]
+sorted.by.injuries <- summary.by.evtype[order(-summary.by.evtype$total.injuries),]
+sorted.by.harm.events <- summary.by.evtype[order(-summary.by.evtype$total.harm.events),]
+
+``` 
+
+Counted in fatalities alone, **TORNADOS** are the most harmful natural events by a significant margin.
+
+```{r, echo=TRUE}
+
+head(sorted.by.fatalities)
+
+```
+
+Counted in injuries alone, **TORNADOS** are still the most harmful natural events by an even more significant margin.
+
+
+```{r, echo=TRUE}
+
+head(sorted.by.injuries)
+
+```
+
+To evaluate the overall most harmful events with respect to population health, I have chosen to use the sum of both injuries and fatalities as total harm events.  The top event types are shown here:
+
+```{r, echo=TRUE}
+
+top.ten <- head(sorted.by.harm.events, 10)
+top.ten
+ggplot(top.ten, aes(x = EVTYPE, y = total.harm.events)) + geom_bar(stat="identity") + coord_flip()
+
+```
+
+
+
+### second question
