@@ -140,24 +140,24 @@ f <- function(df) {
   
   # convert column values to integers
   if(df["PROPDMGEXP"] == "K"){
-    propdamage <- df["PROPDMG"] * 1000
+    propdamage <- as.numeric(df["PROPDMG"]) * 1000
   }else if(df["PROPDMGEXP"] == "M"){
-    propdamage <- df["PROPDMG"] * 1000000
+    propdamage <- as.numeric(df["PROPDMG"]) * 1000000
   }else if(df["PROPDMGEXP"] =="B"){
-    propdamage <- df["PROPDMG"] * 1000000000
+    propdamage <- as.numeric(df["PROPDMG"]) * 1000000000
   }else{
-    propdamage <- df["PROPDMG"]
+    propdamage <- as.numeric(df["PROPDMG"])
   }
   
   # convert column values to integers
   if(df["CROPDMGEXP"] == "K"){
-    cropdamage <- df["CROPDMG"] * 1000
+    cropdamage <- as.numeric(df["CROPDMG"]) * 1000
   }else if(df["CROPDMGEXP"] == "M"){
-    cropdamage <- df["CROPDMG"] * 1000000
+    cropdamage <- as.numeric(df["CROPDMG"]) * 1000000
   }else if(df["CROPDMGEXP"] =="B"){
-    cropdamage <- df["CROPDMG"] * 1000000000
+    cropdamage <- as.numeric(df["CROPDMG"]) * 1000000000
   }else{
-    cropdamage <- df["CROPDMG"]
+    cropdamage <- as.numeric(df["CROPDMG"])
   }
   
   return(propdamage + cropdamage)
