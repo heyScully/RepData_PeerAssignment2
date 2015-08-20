@@ -58,7 +58,7 @@ updatedlabelcount
 
 By looking through the data, some fairly obvious label mismatches became apparent as compared to the allowed values in the Storm Data Event Table provided in the documentation.  To correct this, I'm creating a *replacement* data frame and the DataCombine R package to repair the remaining table. Some assumptions made in the associations below.
 
-```{r, echo=true}
+```{r, echo=TRUE}
 
 # old EVTYPE values
 old.values = c("TSTM WIND", "THUNDERSTORM WINDS", "MARINE TSTM WIND",
@@ -98,7 +98,75 @@ updatedlabelcount2
 
 ```
 
-Now, we're down to just **{r updatedlabelcount2}** EVTYPE labels, all of which fit the reporting guidelines, and we have a workable data set.
+Now, we're down to just **`r updatedlabelcount2`** EVTYPE labels, all of which fit the reporting guidelines.  Let's use a similar process to address potentially bad data in PROPDMGEXP and CROPDMGEXP fields.
+
+```{r, echo=TRUE}
+
+# View PROPDMGEXP values by count
+summarise(group_by(storm.data.replaced,PROPDMGEXP),typecount=length(PROPDMGEXP))
+
+# View CROPDMGEXP values by count
+summarise(group_by(storm.data.replaced,CROPDMGEXP),typecount=length(CROPDMGEXP))
+
+```
+
+The acceptable values for each of these fields is K, M, B, or blank.  The rows with other values represent a small part of the sample.  Rather than attempting to interpret what the reporter intended, I am going to drop rows that are not one of the acceptable fields.
+
+```{r, echo=TRUE}
+
+acceptable.values <- c("K","M","B","", " ")
+storm.data.replaced2 <- storm.data.replaced[which(storm.data.replaced$PROPDMGEXP %in%
+                                                    acceptable.values),]
+storm.data.replaced2 <- storm.data.replaced2[which(storm.data.replaced2$CROPDMGEXP %in%
+                                                    acceptable.values),]
+
+# View UPDATED PROPDMGEXP values by count
+summarise(group_by(storm.data.replaced2,PROPDMGEXP),typecount=length(PROPDMGEXP))
+
+# View UPDATED CROPDMGEXP values by count
+summarise(group_by(storm.data.replaced2,CROPDMGEXP),typecount=length(CROPDMGEXP))
+
+```
+
+Success! Now, let's make add a column that will make the economic impact numbers easier to work with.
+
+```{r echo=TRUE}
+
+# add an integer column for total econ damage (takes a while)
+mutate(storm.data.replaced2, total.econ.damage = 0)
+
+# create function for calculating integer of total econ damage
+f <- function(df) {
+  
+  # convert column values to integers
+  if(df["PROPDMGEXP"] == "K"){
+    propdamage <- df["PROPDMG"] * 1000
+  }else if(df["PROPDMGEXP"] == "M"){
+    propdamage <- df["PROPDMG"] * 1000000
+  }else if(df["PROPDMGEXP"] =="B"){
+    propdamage <- df["PROPDMG"] * 1000000000
+  }else{
+    propdamage <- df["PROPDMG"]
+  }
+  
+  # convert column values to integers
+  if(df["CROPDMGEXP"] == "K"){
+    cropdamage <- df["CROPDMG"] * 1000
+  }else if(df["CROPDMGEXP"] == "M"){
+    cropdamage <- df["CROPDMG"] * 1000000
+  }else if(df["CROPDMGEXP"] =="B"){
+    cropdamage <- df["CROPDMG"] * 1000000000
+  }else{
+    cropdamage <- df["CROPDMG"]
+  }
+  
+  return(propdamage + cropdamage)
+}
+
+# run this function on the whole data frame
+o <- apply(storm.data.replaced2, 1, f)
+```
+
 
 
 ## Results
@@ -147,5 +215,4 @@ ggplot(top.ten, aes(x = EVTYPE, y = total.harm.events)) + geom_bar(stat="identit
 ```
 
 
-
-### second question
+### Across the United States, which types of events have the greatest economic consequences?
