@@ -2,13 +2,16 @@
 title: "The Impact of Weather Events in the United States"
 output: html_document
 ---
+
 ## Synopsis
 
-Synopsis here.  10 sentences max.
+This report analyzes more than 900,000 data points published by the U.S. National Oceanic and Admospheric Administration's (NOAA) Storm Database with data from January of 1950 through November of 2011. While there were data issues to overcome as described and coded for in this document, there was a great majority of useful data points.  With respect to population health, or total harm events counted in this analysis, **tornados** are the most harmful weather events in the United States by large margin.  However, with respect to total economic consequence, **flooding** is by far the economically costliest weather event.  The detailed analysis follows. 
+
+---
 
 ## Data Processing
 
-The data for this analysis is a version hosted on the course web site, which originates from the U.S. National Oceanic and Admospheric Administration's (NOAA) Storm Database. It contains data from January 1950 to November 2011.
+The data for this analysis is a version hosted on the course web site, which originates from the U.S. National Oceanic and Admospheric Administration's (NOAA) Storm Database. 
 
 We download and read in the data.
 
@@ -98,7 +101,7 @@ updatedlabelcount2
 
 ```
 
-Now, we're down to just **`r updatedlabelcount2`** EVTYPE labels, all of which fit the reporting guidelines.  Let's use a similar process to address potentially bad data in PROPDMGEXP and CROPDMGEXP fields.
+Now, we're down to just *40* EVTYPE labels, all of which fit the reporting guidelines.  Let's use a similar process to address potentially bad data in PROPDMGEXP and CROPDMGEXP fields.
 
 ```{r, echo=TRUE}
 
@@ -132,9 +135,6 @@ Success! Now, let's make add a column that will make the economic impact numbers
 
 ```{r echo=TRUE}
 
-# add an integer column for total econ damage (takes a while)
-mutate(storm.data.replaced2, total.econ.damage = 0)
-
 # create function for calculating integer of total econ damage
 f <- function(df) {
   
@@ -163,11 +163,16 @@ f <- function(df) {
   return(propdamage + cropdamage)
 }
 
-# run this function on the whole data frame
-o <- apply(storm.data.replaced2, 1, f)
+# run this function on the whole data frame (some time!)
+total.econ.damage <- apply(storm.data.replaced2, 1, f)
+
+# bind this new column of financial impact calculation to the data frame (some time!)
+storm.data.replaced2 <- cbind(storm.data.replaced2, total.econ.damage)
+
 ```
 
 
+---
 
 ## Results
 
@@ -210,9 +215,31 @@ To evaluate the overall most harmful events with respect to population health, I
 
 top.ten <- head(sorted.by.harm.events, 10)
 top.ten
-ggplot(top.ten, aes(x = EVTYPE, y = total.harm.events)) + geom_bar(stat="identity") + coord_flip()
+ggplot(top.ten, aes(x = EVTYPE, y = total.harm.events)) + geom_bar(stat="identity") + ylab("Total Harm Events") + xlab("Event Type") + coord_flip()
 
 ```
 
 
 ### Across the United States, which types of events have the greatest economic consequences?
+
+```{r, echo=TRUE}
+
+# sum up econ damage by EVTYPE and sort descending
+econ.damage.by.EVTYPE <- summarise(group_by(storm.data.replaced2,EVTYPE), 
+                               sum.econ.damage=sum(total.econ.damage))
+sorted.damage.by.EVTYPE <- arrange(econ.damage.by.EVTYPE, desc(sum.econ.damage))
+
+sorted.damage.by.EVTYPE
+
+```
+
+In terms of comparing economic consequences, I have summed the totals for property and crop damange for each event type.  The analysis shows that **FLOOD** is the event type with the ighest economic consequence in the U.S.  The top ten event types by economic consequence are shown here:
+
+```{r, echo=TRUE}
+
+top.ten2 <- head(sorted.damage.by.EVTYPE, 10)
+top.ten2
+ggplot(top.ten2, aes(x = EVTYPE, y = sum.econ.damage)) + geom_bar(stat="identity") + ylab("Total Economic Damage") + xlab("Event Type") + coord_flip()
+
+```
+
